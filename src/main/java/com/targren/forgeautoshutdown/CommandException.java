@@ -1,6 +1,5 @@
-package com.targren.autoshutdown;
+package com.targren.forgeautoshutdown;
 
-import com.targren.autoshutdown.util.Chat;
 import net.minecraft.util.text.TextComponentTranslation;
 
 /**

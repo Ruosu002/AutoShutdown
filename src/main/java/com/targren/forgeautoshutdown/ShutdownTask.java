@@ -1,4 +1,4 @@
-package com.targren.autoshutdown;
+package com.targren.forgeautoshutdown;
 
 import net.minecraft.server.MinecraftServer;
 import net.minecraftforge.fml.common.FMLCommonHandler;
@@ -6,8 +6,8 @@ import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 import org.apache.logging.log4j.Logger;
-import com.targren.autoshutdown.util.Chat;
-import com.targren.autoshutdown.util.Server;
+import com.targren.forgeautoshutdown.util.Chat;
+import com.targren.forgeautoshutdown.util.Server;
 
 import java.text.Format;
 import java.text.SimpleDateFormat;

@@ -1,11 +1,8 @@
-package com.targren.autoshutdown.util;
+package com.targren.forgeautoshutdown.util;
 
 import net.minecraft.command.ICommandSender;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.text.ITextComponent;
-import net.minecraft.util.text.TextComponentString;
 import net.minecraft.util.text.TextComponentTranslation;
-import net.minecraft.util.text.translation.I18n;
 
 /**
  * Static utility class for chat functions (syntactic sugar)
@@ -20,7 +17,7 @@ public class Chat
      */
     public static void toAll(MinecraftServer server, String msg, Object... parts)
     {
-        server.getServer().getPlayerList().sendMessage(new TextComponentTranslation("msg", parts), false);
+        server.getServer().getPlayerList().sendMessage(new TextComponentTranslation(msg, parts), false);
     }
 
     /**

@@ -1,6 +1,6 @@
-package com.targren.autoshutdown.util;
+package com.targren.forgeautoshutdown.util;
 
-import com.targren.autoshutdown.ForgeAutoShutdown;
+import com.targren.forgeautoshutdown.ForgeAutoShutdown;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.text.ITextComponent;

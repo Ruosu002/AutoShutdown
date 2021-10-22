@@ -1,7 +1,7 @@
-package com.targren.autoshutdown;
+package com.targren.forgeautoshutdown;
 
-import com.targren.autoshutdown.util.Chat;
-import com.targren.autoshutdown.util.Server;
+import com.targren.forgeautoshutdown.util.Chat;
+import com.targren.forgeautoshutdown.util.Server;
 import net.minecraft.command.ICommand;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.server.MinecraftServer;

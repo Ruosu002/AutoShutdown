@@ -1,4 +1,4 @@
-package com.targren.autoshutdown;
+package com.targren.forgeautoshutdown;
 
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.math.MathHelper;

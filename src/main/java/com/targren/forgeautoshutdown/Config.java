@@ -1,4 +1,4 @@
-package com.targren.autoshutdown;
+package com.targren.forgeautoshutdown;
 
 import net.minecraftforge.common.config.Configuration;
 import org.apache.logging.log4j.Logger;
