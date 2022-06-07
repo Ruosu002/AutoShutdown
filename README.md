@@ -1,7 +1,8 @@
 A 1.12.2 Fork of "ForgeAutoShutdown" for 1.10.2 ([Repository](https://github.com/abused/ForgeAutoShutdown))
 
+This mod must be installed on both client and server sides. It doesn't add any commands to SP worlds, but is necessary for localized messages.
 
-ForgeAutoShutdown is a server-only mod that can:
+ForgeAutoShutdown is a mod that can:
 
 * Schedule the server to automatically shut down at a specific time of day, or after X
 hours and minutes of uptime. This allows the server to be automatically restarted by a
@@ -12,8 +13,8 @@ admin intervention
 
 # Requirements
 
-* Minecraft Forge server 1.12.2, at least [12.18.5.2768](http://files.minecraftforge.net/maven/net/minecraftforge/forge/index_1.12.2.html)
-* A wrapper script to restart the server after shutdown (optional). 
+* Minecraft Forge server 1.12.2, running forge [14.23.5.2859](http://files.minecraftforge.net/maven/net/minecraftforge/forge/index_1.12.2.html)
+* A wrapper script that restarts the server after shutdown (optional, but highly recommended). 
 
 # Features
 
@@ -50,9 +51,8 @@ the server. To enable this, set `Delay` to true and adjust `DelayBy` to the amou
 minutes to delay.
 
 The shutdown will be repeatedly delayed until the server is empty. When checking if the
-server for players, fake players (e.g. BuildCraft's quarry) are excluded. Note that
-shutdown warnings are ineffective with delays, and a pending shutdown will be cancelled if
-a player comes online during the countdown.
+server for players, fake players are excluded. Note that shutdown warnings are ineffective 
+with delays, and a pending shutdown will be cancelled if a player comes online during the countdown.
 
 ## Voting
 
@@ -68,7 +68,7 @@ If the vote succeeds, the server will instantly shutdown without warning. If an
 appropriate means of automatic restart is in place, it should be expected that the server
 will go up within a few minutes.
 
-## Watchdog
+## Watchdog (Experimental)
 
 If enabled, a watchdog thread can periodically watch the server for unresponsiveness. By
 default, it checks every 10 seconds:

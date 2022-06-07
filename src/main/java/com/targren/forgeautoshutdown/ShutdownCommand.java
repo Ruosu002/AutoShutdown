@@ -2,10 +2,12 @@ package com.targren.forgeautoshutdown;
 
 import com.targren.forgeautoshutdown.util.Chat;
 import com.targren.forgeautoshutdown.util.Server;
+import net.minecraft.command.CommandBase;
 import net.minecraft.command.ICommand;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.text.TextComponentTranslation;
 import net.minecraftforge.fml.common.event.FMLServerStartingEvent;
 import org.apache.logging.log4j.Logger;
 
@@ -15,11 +17,19 @@ import java.util.*;
 /**
  * Singleton that handles the `/shutdown` voting command
  */
-public class ShutdownCommand implements ICommand
+public class ShutdownCommand extends CommandBase
 {
-    static final List ALIASES = Collections.singletonList("shutdown");
-    static final List OPTIONS = Arrays.asList("yes", "no");
+    static final List<String> ALIASES = Collections.singletonList("shutdown");
+    static final List<String> OPTIONS = Arrays.asList("yes", "no");
 
+    final static int RequiredPermissionLevel = 0;
+    /*
+        0 - All players
+        1 - Can bypass spawn protection
+        2 - Functions, command blocks
+        3 - More commands (MP management)
+        4 - Even more commands (Cheats Enabled, OP, Console)
+     */
     private static ShutdownCommand INSTANCE;
     private static MinecraftServer SERVER;
     private static Logger          LOGGER;
@@ -44,15 +54,24 @@ public class ShutdownCommand implements ICommand
     }
 
     @Override
+    public int getRequiredPermissionLevel(){
+        return RequiredPermissionLevel;
+    }
+
+    @Override
     public void execute(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException
     {
-        if (sender == SERVER)
-            throw new CommandException("error.playersonly");
+        if (sender == SERVER || !(sender instanceof EntityPlayerMP)) {
+            throw new CommandException("forgeautoshutdown.error.playersonly");
+        }
 
-        if (voting)
+        if (voting) {
+            LOGGER.info("ForgeAutoShutdown: " + sender.getDisplayName().getUnformattedText() + " voted " + args[0]);
             processVote(sender, args);
-        else
+        } else {
+            LOGGER.info("ForgeAutoShutdown: " + sender.getDisplayName().getUnformattedText() + " called for a shutdown vote ");
             initiateVote(args);
+        }
     }
 
     @Override
@@ -60,48 +79,48 @@ public class ShutdownCommand implements ICommand
         return Config.voteEnabled;
     }
 
-    public List<String> getTabCompletionOptions(MinecraftServer server, ICommandSender sender, String[] args, @Nullable BlockPos pos) {
-        return OPTIONS;
-    }
-
     private ShutdownCommand() { }
 
     private void initiateVote(String[] args) throws CommandException
     {
-        if (args.length >= 1)
-            throw new CommandException("error.novoteinprogress");
+
+        if (args.length >= 1) {
+            throw new CommandException("forgeautoshutdown.error.novoteinprogress");
+        }
 
         Date now        = new Date();
-        long interval   = Config.voteInterval * 60 * 1000;
+        long interval   = (long)Config.voteInterval * 60 * 1000;
         long difference = now.getTime() - lastVote.getTime();
 
-        if (difference < interval)
-            throw new CommandException("error.toosoon", (interval - difference) / 1000);
+        if (difference < interval) {
+            throw new CommandException("forgeautoshutdown.error.toosoon", (interval - difference) / 1000);
+        }
 
-        List players = SERVER.getPlayerList().getPlayers();
+        List<EntityPlayerMP> players = SERVER.getPlayerList().getPlayers();
 
-        if (players.size() < Config.minVoters)
-            throw new CommandException("error.notenoughplayers", Config.minVoters);
+        if (players.size() < Config.minVoters) {
+            throw new CommandException("forgeautoshutdown.error.notenoughplayers", Config.minVoters);
+        }
 
-        Chat.toAll(SERVER, "msg.votebegun");
+        Chat.toAll(SERVER, "forgeautoshutdown.msg.votebegun");
         voting = true;
     }
 
     private void processVote(ICommandSender sender, String[] args) throws CommandException
     {
         if (args.length < 1)
-            throw new CommandException("error.voteinprogress");
+            throw new CommandException("forgeautoshutdown.error.voteinprogress");
         else if ( !OPTIONS.contains( args[0].toLowerCase() ) )
-            throw new CommandException("error.votebadsyntax");
+            throw new CommandException("forgeautoshutdown.error.votebadsyntax");
 
         String  name = sender.getName();
         Boolean vote = args[0].equalsIgnoreCase("yes");
 
         if ( votes.containsKey(name) )
-            Chat.to(sender, "msg.votecleared");
+            Chat.to(sender, "forgeautoshutdown.msg.votecleared");
 
         votes.put(name, vote);
-        Chat.to(sender, "msg.voterecorded");
+        Chat.to(sender, "forgeautoshutdown.msg.voterecorded");
         checkVotes();
     }
 
@@ -111,7 +130,7 @@ public class ShutdownCommand implements ICommand
 
         if (players < Config.minVoters)
         {
-            voteFailure("fail.notenoughplayers");
+            voteFailure("forgeautoshutdown.fail.notenoughplayers");
             return;
         }
 
@@ -120,7 +139,7 @@ public class ShutdownCommand implements ICommand
 
         if (no >= Config.maxNoVotes)
         {
-            voteFailure("fail.maxnovotes");
+            voteFailure("forgeautoshutdown.fail.maxnovotes");
             return;
         }
 
@@ -131,7 +150,7 @@ public class ShutdownCommand implements ICommand
     private void voteSuccess()
     {
         LOGGER.info("Server shutdown initiated by vote");
-        Server.shutdown("msg.usershutdown");
+        Server.shutdown("forgeautoshutdown.msg.usershutdown");
     }
 
     private void voteFailure(String reason)
@@ -144,6 +163,7 @@ public class ShutdownCommand implements ICommand
     }
 
     // <editor-fold desc="ICommand">
+    @Override
     public String getName()
     {
         return "shutdown";
@@ -156,7 +176,7 @@ public class ShutdownCommand implements ICommand
     }
 
     @Override
-    public List getAliases()
+    public List<String> getAliases()
     {
         return ALIASES;
     }

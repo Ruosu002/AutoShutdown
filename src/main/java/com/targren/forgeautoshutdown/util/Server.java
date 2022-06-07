@@ -22,7 +22,7 @@ public class Server
     public static void shutdown(String reason)
     {
         ITextComponent message = new TextComponentString(reason);
-        reason = message.getFormattedText();
+        String ShutdownReason = message.getFormattedText();
 
         //for ( Object value : SERVER.getPlayerList().getPlayerList().toArray() )
         for ( Object value : SERVER.getPlayerList().getPlayers().toArray() )
@@ -32,7 +32,8 @@ public class Server
             //player.connection.kickPlayerFromServer(reason);
         }
 
-        LOGGER.debug("Shutdown initiated because: %s", reason);
+
+        LOGGER.info(String.format("Shutdown initiated because: %s", ShutdownReason));
         SERVER.initiateShutdown();
     }
 

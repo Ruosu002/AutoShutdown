@@ -17,11 +17,11 @@ import org.apache.logging.log4j.Logger;
 
     acceptableRemoteVersions = "*",
     acceptableSaveVersions   = "",
-        serverSideOnly = true
+        serverSideOnly = false
 )
 public class ForgeAutoShutdown
 {
-    public static final String VERSION = "1.12.2-0.0.1";
+    public static final String VERSION = "1.12.2-1.1.0";
     public static final String MODID   = "forgeautoshutdown";
     public static final Logger LOGGER  = LogManager.getFormatterLogger(MODID);
 
@@ -31,8 +31,7 @@ public class ForgeAutoShutdown
     @SideOnly(Side.CLIENT)
     public void clientPreInit(FMLPreInitializationEvent event)
     {
-        LOGGER.error("This mod is intended only for use on servers.");
-        LOGGER.error("Please consider removing this mod from your installation.");
+        LOGGER.info("[ForgeAutoShutdown] This mod only functions on servers, but client installation is required for localization/language support");
     }
 
     @Mod.EventHandler
