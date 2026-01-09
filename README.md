@@ -1,81 +1,50 @@
-A 1.12.2 Fork of "ForgeAutoShutdown" for 1.10.2 ([Repository](https://github.com/abused/ForgeAutoShutdown))
+# ForgeAutoShutdown（1.19.2 Forge, Java 17）
 
-This mod must be installed on both client and server sides. It doesn't add any commands to SP worlds, but is necessary for localized messages.
+按计划或投票自动关闭 Minecraft 服务器，并提供可选看门狗功能。
 
-ForgeAutoShutdown is a mod that can:
+## 原项目与来源
 
-* Schedule the server to automatically shut down at a specific time of day, or after X
-hours and minutes of uptime. This allows the server to be automatically restarted by a
-shell script, Windows batch file or service.
-* Allow players to vote for a manual shutdown, so a lagged out server does not require
-admin intervention
-* Shutdown or kill a server that is hung (stalled) or laggy
+本仓库为以下项目的移植/分支：
 
-# Requirements
+- 原始项目：https://github.com/abused/ForgeAutoShutdown
+- 1.12.2 基底项目：https://gitlab.com/targren/forgeautoshutdown
 
-* Minecraft Forge server 1.12.2, running forge [14.23.5.2859](http://files.minecraftforge.net/maven/net/minecraftforge/forge/index_1.12.2.html)
-* A wrapper script that restarts the server after shutdown (optional, but highly recommended). 
+## 运行要求
 
-# Features
+- Minecraft Forge 1.19.2（建议 Forge 43.2.x）
+- Java 17
+- 服务器必装；客户端如需本地化提示请同时安装（否则会显示语言键）
 
-*Any of these features may be disabled in the config*
+## 功能
 
-## Scheduled shutdown
-ForgeAutoShutdown will log a message at the INFO level on server startup, with a date and
-time of the next scheduled shutdown. For example:
+- 定时关闭（按时间或按运行时长）
+- 可选的关闭前警告与“空服再关”延迟
+- 玩家投票关服（`/shutdown`）
+- 看门狗检测卡死或低 TPS（谨慎开启）
 
-`[10:50:09] [Server thread/INFO] [ForgeAutoShutdown]: Next automatic shutdown: 08:30:00 09-June-2019`
+## 命令
 
-If this message is missing, the mod has not been correctly installed or the schedule is
-disabled in config. If the mod is installed on a Minecraft client, it will log an ERROR to
-the console and not perform any function. It will not crash or disable the client.
+- `/shutdown` 发起投票（开启投票时）
+- `/shutdown yes` 或 `/shutdown no` 进行投票
 
-### Mode
-By default, the shutdown will be scheduled to happen at a specific time of day. This is
-the time local to the server and will always happen within the next 24 hours after server
-startup. This means that if the server starts and has missed the shutdown time even by a
-few minutes, it will schedule for the next day.
+## 配置
 
-Alternatively, setting `Uptime` to true means the server can shutdown after a specific
-amount of hours or minutes instead. This can allow the server to restart multiple times a
-day, or after a few days, etc.
+服务端配置文件：
 
-### Warnings
-By default a scheduled shutdown will give a warning to all players, each minute for five
-minutes, after the scheduled time. This can be disabled by setting `Warnings` to `false`.
-This means the server will shutdown, without warning, by the scheduled time.
+- `world/serverconfig/forgeautoshutdown-server.toml`
 
-### Delay
-If desired, the shutdown can be delayed by a configurable amount if players are still on
-the server. To enable this, set `Delay` to true and adjust `DelayBy` to the amount of
-minutes to delay.
+分类：Schedule / Voting / Watchdog / Messages。
 
-The shutdown will be repeatedly delayed until the server is empty. When checking if the
-server for players, fake players are excluded. Note that shutdown warnings are ineffective 
-with delays, and a pending shutdown will be cancelled if a player comes online during the countdown.
+## 构建
 
-## Voting
+使用 Java 17：
 
-If enabled, players may vote a manual shutdown. To do so, a player must execute
-`/shutdown`. Then, **all** players (including the vote initiator) must vote using
-`/shutdown yes` or `/shutdown no`.
+```bash
+JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home ./gradlew build
+```
 
-If the amount of `no` votes reach a maximum threshold, the vote fails. If a vote is cast
-and too many players have disconnected in the meantime, the vote fails. If a vote fails,
-another one will not be able to start until a configured amount of minutes has passed.
+产物目录：`build/libs/`
 
-If the vote succeeds, the server will instantly shutdown without warning. If an
-appropriate means of automatic restart is in place, it should be expected that the server
-will go up within a few minutes.
+## 许可证
 
-## Watchdog (Experimental)
-
-If enabled, a watchdog thread can periodically watch the server for unresponsiveness. By
-default, it checks every 10 seconds:
-
-* Whether the server is hanging (or "stalling") on a tick
-* Whether the TPS stays below a certain amount for a certain length of time
-
-If either problem is detected, the watchdog will try a soft kill (or a hard kill, if
-configured). This makes the server try to save all its data before shutting down. If a
-soft kill takes longer than ten seconds, the watchdog will do a hard kill.
+MIT

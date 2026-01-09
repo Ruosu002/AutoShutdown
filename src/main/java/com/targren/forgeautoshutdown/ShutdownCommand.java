@@ -1,205 +1,167 @@
 package com.targren.forgeautoshutdown;
 
+import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import com.mojang.brigadier.exceptions.DynamicCommandExceptionType;
+import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
 import com.targren.forgeautoshutdown.util.Chat;
 import com.targren.forgeautoshutdown.util.Server;
-import net.minecraft.command.CommandBase;
-import net.minecraft.command.ICommand;
-import net.minecraft.command.ICommandSender;
+import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.commands.Commands;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.text.TextComponentTranslation;
-import net.minecraftforge.fml.common.event.FMLServerStartingEvent;
+import net.minecraft.server.level.ServerPlayer;
 import org.apache.logging.log4j.Logger;
 
-import javax.annotation.Nullable;
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 
 /**
  * Singleton that handles the `/shutdown` voting command
  */
-public class ShutdownCommand extends CommandBase
+public class ShutdownCommand
 {
-    static final List<String> ALIASES = Collections.singletonList("shutdown");
-    static final List<String> OPTIONS = Arrays.asList("yes", "no");
+    private static final SimpleCommandExceptionType PLAYERS_ONLY =
+        new SimpleCommandExceptionType(Component.translatable("forgeautoshutdown.error.playersonly"));
+    private static final SimpleCommandExceptionType NO_VOTE_IN_PROGRESS =
+        new SimpleCommandExceptionType(Component.translatable("forgeautoshutdown.error.novoteinprogress"));
+    private static final SimpleCommandExceptionType VOTE_IN_PROGRESS =
+        new SimpleCommandExceptionType(Component.translatable("forgeautoshutdown.error.voteinprogress"));
+    private static final DynamicCommandExceptionType TOO_SOON =
+        new DynamicCommandExceptionType(seconds ->
+            Component.translatable("forgeautoshutdown.error.toosoon", seconds)
+        );
+    private static final DynamicCommandExceptionType NOT_ENOUGH_PLAYERS =
+        new DynamicCommandExceptionType(required ->
+            Component.translatable("forgeautoshutdown.error.notenoughplayers", required)
+        );
 
-    final static int RequiredPermissionLevel = 0;
-    /*
-        0 - All players
-        1 - Can bypass spawn protection
-        2 - Functions, command blocks
-        3 - More commands (MP management)
-        4 - Even more commands (Cheats Enabled, OP, Console)
-     */
-    private static ShutdownCommand INSTANCE;
-    private static MinecraftServer SERVER;
-    private static Logger          LOGGER;
+    private static final ShutdownCommand INSTANCE = new ShutdownCommand();
 
-    HashMap<String, Boolean> votes = new HashMap<>();
+    private final Map<UUID, Boolean> votes = new HashMap<>();
+    private long lastVoteMillis = 0L;
+    private boolean voting = false;
 
-    Date    lastVote = new Date(0);
-    boolean voting   = false;
-
-    /** Creates and registers the `/shutdown` command for use */
-    public static void create(FMLServerStartingEvent event)
+    /** Registers the `/shutdown` command for use */
+    public static void register(CommandDispatcher<CommandSourceStack> dispatcher)
     {
-        if (INSTANCE != null)
-            throw new RuntimeException("ShutdownCommand can only be created once");
+        dispatcher.register(Commands.literal("shutdown")
+            .requires(source -> Config.voteEnabled.get())
+            .executes(context -> INSTANCE.initiateVote(context.getSource()))
+            .then(Commands.literal("yes")
+                .executes(context -> INSTANCE.processVote(context.getSource(), true))
+            )
+            .then(Commands.literal("no")
+                .executes(context -> INSTANCE.processVote(context.getSource(), false))
+            )
+        );
 
-        INSTANCE = new ShutdownCommand();
-        SERVER   = ForgeAutoShutdown.server;
-        LOGGER   = ForgeAutoShutdown.LOGGER;
-
-        event.registerServerCommand(INSTANCE);
-        LOGGER.debug("`/shutdown` command registered");
-    }
-
-    @Override
-    public int getRequiredPermissionLevel(){
-        return RequiredPermissionLevel;
-    }
-
-    @Override
-    public void execute(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException
-    {
-        if (sender == SERVER || !(sender instanceof EntityPlayerMP)) {
-            throw new CommandException("forgeautoshutdown.error.playersonly");
-        }
-
-        if (voting) {
-            LOGGER.info("ForgeAutoShutdown: " + sender.getDisplayName().getUnformattedText() + " voted " + args[0]);
-            processVote(sender, args);
-        } else {
-            LOGGER.info("ForgeAutoShutdown: " + sender.getDisplayName().getUnformattedText() + " called for a shutdown vote ");
-            initiateVote(args);
-        }
-    }
-
-    @Override
-    public boolean checkPermission(MinecraftServer server, ICommandSender sender) {
-        return Config.voteEnabled;
+        ForgeAutoShutdown.LOGGER.debug("`/shutdown` command registered");
     }
 
     private ShutdownCommand() { }
 
-    private void initiateVote(String[] args) throws CommandException
+    private int initiateVote(CommandSourceStack source) throws CommandSyntaxException
     {
+        ServerPlayer player = getPlayer(source);
+        Logger logger = ForgeAutoShutdown.LOGGER;
 
-        if (args.length >= 1) {
-            throw new CommandException("forgeautoshutdown.error.novoteinprogress");
-        }
+        if (voting)
+            throw VOTE_IN_PROGRESS.create();
 
-        Date now        = new Date();
-        long interval   = (long)Config.voteInterval * 60 * 1000;
-        long difference = now.getTime() - lastVote.getTime();
+        long now = System.currentTimeMillis();
+        long interval = (long) Config.voteInterval.get() * 60 * 1000;
+        long difference = now - lastVoteMillis;
 
-        if (difference < interval) {
-            throw new CommandException("forgeautoshutdown.error.toosoon", (interval - difference) / 1000);
-        }
+        if (difference < interval)
+            throw TOO_SOON.create((interval - difference) / 1000);
 
-        List<EntityPlayerMP> players = SERVER.getPlayerList().getPlayers();
+        MinecraftServer server = source.getServer();
+        int players = server.getPlayerList().getPlayers().size();
 
-        if (players.size() < Config.minVoters) {
-            throw new CommandException("forgeautoshutdown.error.notenoughplayers", Config.minVoters);
-        }
+        if (players < Config.minVoters.get())
+            throw NOT_ENOUGH_PLAYERS.create(Config.minVoters.get());
 
-        Chat.toAll(SERVER, "forgeautoshutdown.msg.votebegun");
+        votes.clear();
         voting = true;
+
+        Chat.toAll(server, "forgeautoshutdown.msg.votebegun");
+        logger.info("ForgeAutoShutdown: {} called for a shutdown vote", player.getScoreboardName());
+        return 1;
     }
 
-    private void processVote(ICommandSender sender, String[] args) throws CommandException
+    private int processVote(CommandSourceStack source, boolean vote) throws CommandSyntaxException
     {
-        if (args.length < 1)
-            throw new CommandException("forgeautoshutdown.error.voteinprogress");
-        else if ( !OPTIONS.contains( args[0].toLowerCase() ) )
-            throw new CommandException("forgeautoshutdown.error.votebadsyntax");
+        ServerPlayer player = getPlayer(source);
+        Logger logger = ForgeAutoShutdown.LOGGER;
 
-        String  name = sender.getName();
-        Boolean vote = args[0].equalsIgnoreCase("yes");
+        if (!voting)
+            throw NO_VOTE_IN_PROGRESS.create();
 
-        if ( votes.containsKey(name) )
-            Chat.to(sender, "forgeautoshutdown.msg.votecleared");
+        UUID id = player.getUUID();
 
-        votes.put(name, vote);
-        Chat.to(sender, "forgeautoshutdown.msg.voterecorded");
-        checkVotes();
+        if (votes.containsKey(id))
+            Chat.to(source, "forgeautoshutdown.msg.votecleared");
+
+        votes.put(id, vote);
+        Chat.to(source, "forgeautoshutdown.msg.voterecorded");
+
+        logger.info("ForgeAutoShutdown: {} voted {}", player.getScoreboardName(), vote ? "yes" : "no");
+        checkVotes(source.getServer());
+        return 1;
     }
 
-    private void checkVotes()
+    private void checkVotes(MinecraftServer server)
     {
-        int players = SERVER.getPlayerList().getPlayers().size();
+        int players = server.getPlayerList().getPlayers().size();
 
-        if (players < Config.minVoters)
+        if (players < Config.minVoters.get())
         {
-            voteFailure("forgeautoshutdown.fail.notenoughplayers");
+            voteFailure(server, "forgeautoshutdown.fail.notenoughplayers");
             return;
         }
 
-        int yes = Collections.frequency(votes.values(), true);
-        int no  = Collections.frequency(votes.values(), false);
-
-        if (no >= Config.maxNoVotes)
+        int yes = 0;
+        int no = 0;
+        for (boolean vote : votes.values())
         {
-            voteFailure("forgeautoshutdown.fail.maxnovotes");
+            if (vote)
+                yes++;
+            else
+                no++;
+        }
+
+        if (no >= Config.maxNoVotes.get())
+        {
+            voteFailure(server, "forgeautoshutdown.fail.maxnovotes");
             return;
         }
 
         if (yes + no == players)
-            voteSuccess();
+            voteSuccess(server);
     }
 
-    private void voteSuccess()
+    private void voteSuccess(MinecraftServer server)
     {
-        LOGGER.info("Server shutdown initiated by vote");
-        Server.shutdown("forgeautoshutdown.msg.usershutdown");
+        ForgeAutoShutdown.LOGGER.info("Server shutdown initiated by vote");
+        Server.shutdown(server, Component.translatable("forgeautoshutdown.msg.usershutdown"));
     }
 
-    private void voteFailure(String reason)
+    private void voteFailure(MinecraftServer server, String reason)
     {
-        Chat.toAll(SERVER, reason);
+        Chat.toAll(server, reason);
         votes.clear();
 
-        lastVote = new Date();
-        voting   = false;
+        lastVoteMillis = System.currentTimeMillis();
+        voting = false;
     }
 
-    // <editor-fold desc="ICommand">
-    @Override
-    public String getName()
+    private static ServerPlayer getPlayer(CommandSourceStack source) throws CommandSyntaxException
     {
-        return "shutdown";
+        if (source.getEntity() instanceof ServerPlayer player)
+            return player;
+
+        throw PLAYERS_ONLY.create();
     }
-
-    @Override
-    public String getUsage(ICommandSender sender)
-    {
-        return "/shutdown <yes|no>";
-    }
-
-    @Override
-    public List<String> getAliases()
-    {
-        return ALIASES;
-    }
-
-    @Override
-    public boolean isUsernameIndex(String[] args, int idx)
-    {
-        return false;
-    }
-
-    @Override
-    public int compareTo(ICommand o) {
-        return o.getName().compareTo( getName() );
-    }
-    // </editor-fold>
-
-    /**
-     * Get a list of options for when the user presses the TAB key
-     */
-    @Override
-    public List<String> getTabCompletions(MinecraftServer server, ICommandSender sender, String[] args, @Nullable BlockPos targetPos){
-       return OPTIONS;
-    }
-
-
 }

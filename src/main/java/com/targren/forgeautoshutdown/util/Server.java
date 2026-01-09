@@ -1,10 +1,9 @@
 package com.targren.forgeautoshutdown.util;
 
 import com.targren.forgeautoshutdown.ForgeAutoShutdown;
-import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.text.ITextComponent;
-import net.minecraft.util.text.TextComponentString;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.common.util.FakePlayer;
 import org.apache.logging.log4j.Logger;
 
@@ -13,37 +12,33 @@ import org.apache.logging.log4j.Logger;
  */
 public class Server
 {
-    // Safe to declare here. This class should only ever be loaded if any of its methods
-    // are called, which by then these should be available.
-    static final MinecraftServer SERVER = ForgeAutoShutdown.server;
-    static final Logger          LOGGER = ForgeAutoShutdown.LOGGER;
+    private static final Logger LOGGER = ForgeAutoShutdown.LOGGER;
 
     /** Kicks all players from the server with given reason, then shuts server down */
-    public static void shutdown(String reason)
+    public static void shutdown(MinecraftServer server, Component message)
     {
-        ITextComponent message = new TextComponentString(reason);
-        String ShutdownReason = message.getFormattedText();
+        if (server == null)
+            return;
 
-        //for ( Object value : SERVER.getPlayerList().getPlayerList().toArray() )
-        for ( Object value : SERVER.getPlayerList().getPlayers().toArray() )
-        {
-            EntityPlayerMP player = (EntityPlayerMP) value;
+        for (ServerPlayer player : server.getPlayerList().getPlayers())
             player.connection.disconnect(message);
-            //player.connection.kickPlayerFromServer(reason);
-        }
 
-
-        LOGGER.info(String.format("Shutdown initiated because: %s", ShutdownReason));
-        SERVER.initiateShutdown();
+        LOGGER.info("Shutdown initiated because: {}", message.getString());
+        server.halt(false);
     }
 
     /** Checks if any non-fake player is present on the server */
-    public static boolean hasRealPlayers()
+    public static boolean hasRealPlayers(MinecraftServer server)
     {
-        for ( Object value : SERVER.getPlayerList().getPlayers().toArray() )
-            if (value instanceof EntityPlayerMP)
-            if ( !(value instanceof FakePlayer) )
+        if (server == null)
+            return false;
+
+        for (ServerPlayer player : server.getPlayerList().getPlayers())
+        {
+            if (!(player instanceof FakePlayer))
                 return true;
+        }
+
         return false;
     }
 }

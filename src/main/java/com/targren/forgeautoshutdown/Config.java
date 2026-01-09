@@ -1,9 +1,7 @@
 package com.targren.forgeautoshutdown;
 
-import net.minecraftforge.common.config.Configuration;
+import net.minecraftforge.common.ForgeConfigSpec;
 import org.apache.logging.log4j.Logger;
-
-import java.io.File;
 
 /**
  * Static container class for mod's configuration values. Handles saving and loading.
@@ -11,136 +9,112 @@ import java.io.File;
 class Config
 {
     private static final String SCHEDULE = "Schedule";
-    private static final String VOTING   = "Voting";
+    private static final String VOTING = "Voting";
     private static final String WATCHDOG = "Watchdog";
     private static final String MESSAGES = "Messages";
 
-    static Configuration config;
+    static final ForgeConfigSpec SPEC;
 
-    static boolean scheduleEnabled = true;
-    static boolean scheduleWarning = true;
-    static boolean scheduleDelay   = false;
-    static boolean scheduleUptime  = false;
-    static int     scheduleHour    = 5;
-    static int     scheduleMinute  = 0;
-    static int     scheduleDelayBy = 5;
+    static final ForgeConfigSpec.BooleanValue scheduleEnabled;
+    static final ForgeConfigSpec.BooleanValue scheduleWarning;
+    static final ForgeConfigSpec.BooleanValue scheduleDelay;
+    static final ForgeConfigSpec.BooleanValue scheduleUptime;
+    static final ForgeConfigSpec.IntValue scheduleHour;
+    static final ForgeConfigSpec.IntValue scheduleMinute;
+    static final ForgeConfigSpec.IntValue scheduleDelayBy;
 
-    static boolean voteEnabled  = false;
-    static int     voteInterval = 15;
-    static int     minVoters    = 4;
-    static int     maxNoVotes   = 2;
+    static final ForgeConfigSpec.BooleanValue voteEnabled;
+    static final ForgeConfigSpec.IntValue voteInterval;
+    static final ForgeConfigSpec.IntValue minVoters;
+    static final ForgeConfigSpec.IntValue maxNoVotes;
 
-    static boolean watchdogEnabled  = false;
-    static boolean attemptSoftKill  = true;
-    static int     watchdogInterval = 10;
-    static int     maxTickTimeout   = 40;
-    static int     lowTPSThreshold  = 10;
-    static int     lowTPSTimeout    = 30;
+    static final ForgeConfigSpec.BooleanValue watchdogEnabled;
+    static final ForgeConfigSpec.BooleanValue attemptSoftKill;
+    static final ForgeConfigSpec.IntValue watchdogInterval;
+    static final ForgeConfigSpec.IntValue maxTickTimeout;
+    static final ForgeConfigSpec.IntValue lowTPSThreshold;
+    static final ForgeConfigSpec.IntValue lowTPSTimeout;
 
-    static String msgWarn = "Server is shutting down in %m minute(s).";
-    static String msgKick = "Scheduled server shutdown";
+    static final ForgeConfigSpec.ConfigValue<String> msgWarn;
+    static final ForgeConfigSpec.ConfigValue<String> msgKick;
 
-    /**
-     * Populates the config values with saved or defaults. Automatically creates the
-     * config file with defaults, if missing.
-     * @param configFile File to use for loading/saving
-     */
-    static void init(File configFile)
+    static
     {
-        config = new Configuration(configFile);
+        ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
 
-        config.setCategoryComment(SCHEDULE,
-            "All times are 24 hour (military) format, relative to machine's local time");
+        builder.comment("All times are 24 hour (military) format, relative to machine's local time")
+            .push(SCHEDULE);
 
-        scheduleEnabled = config.getBoolean("Enabled", SCHEDULE, scheduleEnabled,
-            "If true, server will automatically shutdown");
-        scheduleWarning = config.getBoolean("Warnings", SCHEDULE, scheduleWarning,
-            "If true, server will give five minutes of warnings prior to shutdown");
-        scheduleDelay   = config.getBoolean("Delay", SCHEDULE, scheduleDelay,
-            "If true, server will delay shutdown until server is empty");
-        scheduleUptime  = config.getBoolean("Uptime", SCHEDULE, scheduleUptime,
-            "If true, server will use Hour and Minute as uptime until shutdown.\n" +
-            "If false, server will use Hour and Minute as time of day to shutdown.");
-        scheduleHour    = config.getInt("Hour", SCHEDULE, scheduleHour, 0, 720,
-            "Hour of the shutdown process (e.g. 8 for 8 AM OR 8 hours uptime)");
-        scheduleMinute  = config.getInt("Minute", SCHEDULE, scheduleMinute, 0, 59,
-            "Minute of the shutdown process (e.g. 30 for half-past OR 30 mins uptime)");
+        scheduleEnabled = builder.define("Enabled", true);
+        scheduleWarning = builder.define("Warnings", true);
+        scheduleDelay = builder.define("Delay", false);
+        scheduleUptime = builder.define("Uptime", false);
+        scheduleHour = builder.defineInRange("Hour", 5, 0, 720);
+        scheduleMinute = builder.defineInRange("Minute", 0, 0, 59);
+        scheduleDelayBy = builder.defineInRange("DelayBy", 5, 1, 1440);
+        builder.pop();
 
-        scheduleDelayBy = config.getInt(
-            "DelayBy", SCHEDULE, scheduleDelayBy, 1, 1440,
-            "Minutes to delay scheduled shutdown by, if server is not empty"
-        );
+        builder.comment("Allows players to shut down the server without admin intervention")
+            .push(VOTING);
 
-        config.setCategoryComment(VOTING,
-            "Allows players to shut down the server without admin intervention");
+        voteEnabled = builder.define("VoteEnabled", false);
+        voteInterval = builder.defineInRange("VoteInterval", 15, 0, 1440);
+        minVoters = builder.defineInRange("MinVoters", 4, 1, 999);
+        maxNoVotes = builder.defineInRange("MaxNoVotes", 2, 1, 999);
+        builder.pop();
 
-        voteEnabled  = config.getBoolean("VoteEnabled", VOTING, voteEnabled,
-            "If true, players may vote to shut server down using '/shutdown'");
-        voteInterval = config.getInt("VoteInterval", VOTING, voteInterval, 0, 1440,
-            "Min. minutes after a failed vote before new one can begin");
-        minVoters    = config.getInt("MinVoters", VOTING, minVoters, 1, 999,
-            "Min. players online required to begin a vote");
-        maxNoVotes   = config.getInt("MaxNoVotes", VOTING, maxNoVotes, 1, 999,
-            "Max. 'No' votes to cancel a shutdown");
-
-        config.setCategoryComment(WATCHDOG,
+        builder.comment(
             "Monitors the server and tries to kill it if unresponsive. " +
-            "USE AT RISK: May corrupt data if killed before or during save");
+            "USE AT RISK: May corrupt data if killed before or during save"
+        ).push(WATCHDOG);
 
-        watchdogEnabled  = config.getBoolean("Enabled", WATCHDOG, watchdogEnabled,
-            "If true, try to shutdown the server if unresponsive");
-        attemptSoftKill  = config.getBoolean("AttemptSoftKill", WATCHDOG, attemptSoftKill,
-            "If true, try to save worlds and data before forcing a kill. " +
-            "WARNING: Setting 'false' is faster, but much higher risk of corruption");
-        watchdogInterval = config.getInt("Interval", WATCHDOG, watchdogInterval, 1, 3600,
-            "How many seconds between checking for an unresponsive server");
-        maxTickTimeout   = config.getInt("Timeout", WATCHDOG, maxTickTimeout, 1, 3600,
-            "Max. seconds a single server tick may last before killing");
-        lowTPSThreshold  = config.getInt("LowTPSThreshold", WATCHDOG, lowTPSThreshold, 0, 19,
-            "TPS below this value is considered 'too low'");
-        lowTPSTimeout    = config.getInt("LowTPSTimeout", WATCHDOG, lowTPSTimeout, 1, 3600,
-            "Max. seconds TPS may stay below threshold before killing");
+        watchdogEnabled = builder.define("Enabled", false);
+        attemptSoftKill = builder.define("AttemptSoftKill", true);
+        watchdogInterval = builder.defineInRange("Interval", 10, 1, 3600);
+        maxTickTimeout = builder.defineInRange("Timeout", 40, 1, 3600);
+        lowTPSThreshold = builder.defineInRange("LowTPSThreshold", 10, 0, 19);
+        lowTPSTimeout = builder.defineInRange("LowTPSTimeout", 30, 1, 3600);
+        builder.pop();
 
-        config.setCategoryComment(MESSAGES,
-            "Customizable messages for the shutdown process");
+        builder.comment("Customizable messages for the shutdown process")
+            .push(MESSAGES);
 
-        msgWarn = config.getString("Warn", MESSAGES, msgWarn,
-            "Pre-shutdown warning message. Use %m for minutes remaining");
-        msgKick = config.getString("Kick", MESSAGES, msgKick,
-            "Message shown to player on disconnect during shutdown");
+        msgWarn = builder.define("Warn", "Server is shutting down in %m minute(s).");
+        msgKick = builder.define("Kick", "Scheduled server shutdown");
+        builder.pop();
 
-        check();
-        config.save();
+        SPEC = builder.build();
     }
 
     /**
      * Checks the loaded configuration and makes adjustments based on other config
      */
-    static void check()
+    static void validate()
     {
-        final Logger LOGGER = ForgeAutoShutdown.LOGGER;
+        Logger logger = ForgeAutoShutdown.LOGGER;
 
-        // Ensure daily shutdown hour is not set to more than 23:00
-        if (!scheduleUptime && scheduleHour >= 24)
+        int hour = scheduleHour.get();
+        int minute = scheduleMinute.get();
+
+        if (!scheduleUptime.get() && hour >= 24)
         {
-            LOGGER.warn("Uptime shutdown is disabled, but the shutdown hour is more " +
+            logger.warn("Uptime shutdown is disabled, but the shutdown hour is more " +
                 "than 23! Please fix this in the config. It will be set to 00 hours.");
-            scheduleHour = 0;
+            scheduleHour.set(0);
         }
 
-        // Ensure uptime shutdown is not set to zero hours zero minutes
-        if (scheduleUptime && scheduleHour == 0 && scheduleMinute == 0)
+        if (scheduleUptime.get() && hour == 0 && minute == 0)
         {
-            LOGGER.warn("Uptime shutdown is enabled, but is set to shutdown after " +
+            logger.warn("Uptime shutdown is enabled, but is set to shutdown after " +
                 "0 hours and 0 minutes of uptime! Please fix this in the config. " +
                 "It will be set to 24 hours.");
-            scheduleHour = 24;
+            scheduleHour.set(24);
         }
     }
 
     static boolean isNothingEnabled()
     {
-        return !scheduleEnabled && !voteEnabled && !watchdogEnabled;
+        return !scheduleEnabled.get() && !voteEnabled.get() && !watchdogEnabled.get();
     }
 
     private Config() { }

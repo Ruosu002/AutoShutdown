@@ -1,8 +1,8 @@
 package com.targren.forgeautoshutdown.util;
 
-import net.minecraft.command.ICommandSender;
+import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.text.TextComponentTranslation;
 
 /**
  * Static utility class for chat functions (syntactic sugar)
@@ -10,25 +10,34 @@ import net.minecraft.util.text.TextComponentTranslation;
 public class Chat
 {
     /**
-     * Broadcasts an auto. translated, formatted encapsulated message to all players
+     * Broadcasts an auto translated message to all players
      * @param server Server instance to broadcast to
      * @param msg String or language key to broadcast
      * @param parts Optional objects to add to formattable message
      */
     public static void toAll(MinecraftServer server, String msg, Object... parts)
     {
-        server.getServer().getPlayerList().sendMessage(new TextComponentTranslation(msg, parts), false);
+        toAll(server, Component.translatable(msg, parts));
+    }
+
+    public static void toAll(MinecraftServer server, Component message)
+    {
+        server.getPlayerList().broadcastSystemMessage(message, false);
     }
 
     /**
-     * Sends an automatically translated, formatted & encapsulated message to a player
-     * @param sender Target to send message to
+     * Sends an automatically translated, formatted & encapsulated message to a command source
+     * @param source Target to send message to
      * @param msg String or language key to broadcast
      * @param parts Optional objects to add to formattable message
      */
-    public static void to(ICommandSender sender, String msg, Object... parts)
+    public static void to(CommandSourceStack source, String msg, Object... parts)
     {
-        sender.sendMessage(new TextComponentTranslation(msg, parts));
+        to(source, Component.translatable(msg, parts));
     }
 
+    public static void to(CommandSourceStack source, Component message)
+    {
+        source.sendSystemMessage(message);
+    }
 }

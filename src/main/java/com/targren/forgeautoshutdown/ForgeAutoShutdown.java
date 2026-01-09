@@ -1,65 +1,57 @@
 package com.targren.forgeautoshutdown;
 
 import net.minecraft.server.MinecraftServer;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.event.RegisterCommandsEvent;
+import net.minecraftforge.event.server.ServerStartingEvent;
+import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
-import net.minecraftforge.fml.common.event.FMLServerStartingEvent;
-import net.minecraftforge.fml.relauncher.Side;
-import net.minecraftforge.fml.relauncher.SideOnly;
+import net.minecraftforge.fml.config.ModConfig;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-
-@Mod(
-    modid   = ForgeAutoShutdown.MODID,
-    name    = ForgeAutoShutdown.MODID,
-    version = ForgeAutoShutdown.VERSION,
-
-    acceptableRemoteVersions = "*",
-    acceptableSaveVersions   = "",
-        serverSideOnly = false
-)
+@Mod(ForgeAutoShutdown.MODID)
 public class ForgeAutoShutdown
 {
-    public static final String VERSION = "1.12.2-1.1.0";
-    public static final String MODID   = "forgeautoshutdown";
-    public static final Logger LOGGER  = LogManager.getFormatterLogger(MODID);
+    public static final String MODID = "forgeautoshutdown";
+    public static final String VERSION = "1.19.2-1.1.0";
+    public static final Logger LOGGER = LogManager.getLogger();
 
-    public static MinecraftServer server;
+    private static MinecraftServer server;
 
-    @Mod.EventHandler
-    @SideOnly(Side.CLIENT)
-    public void clientPreInit(FMLPreInitializationEvent event)
+    public ForgeAutoShutdown()
     {
-        LOGGER.info("[ForgeAutoShutdown] This mod only functions on servers, but client installation is required for localization/language support");
+        ModLoadingContext.get().registerConfig(ModConfig.Type.SERVER, Config.SPEC);
+        MinecraftForge.EVENT_BUS.addListener(this::onRegisterCommands);
+        MinecraftForge.EVENT_BUS.addListener(this::onServerStarting);
     }
 
-    @Mod.EventHandler
-    @SideOnly(Side.SERVER)
-    public void serverPreInit(FMLPreInitializationEvent event)
+    public static MinecraftServer getServer()
     {
-        Config.init( event.getSuggestedConfigurationFile() );
+        return server;
     }
 
-    @Mod.EventHandler
-    @SideOnly(Side.SERVER)
-    public void serverStart(FMLServerStartingEvent event)
+    private void onRegisterCommands(RegisterCommandsEvent event)
+    {
+        ShutdownCommand.register(event.getDispatcher());
+    }
+
+    private void onServerStarting(ServerStartingEvent event)
     {
         server = event.getServer();
-        if ( Config.isNothingEnabled() )
+        Config.validate();
+
+        if (Config.isNothingEnabled())
         {
             LOGGER.warn("It appears no ForgeAutoShutdown features are enabled.");
-            LOGGER.warn("Please check the config at `config/forgeautoshutdown.cfg`.");
+            LOGGER.warn("Please check the config at `world/serverconfig/forgeautoshutdown-server.toml`.");
             return;
         }
 
-        if (Config.scheduleEnabled)
-            ShutdownTask.create();
+        if (Config.scheduleEnabled.get())
+            ShutdownTask.create(server);
 
-        if (Config.voteEnabled)
-            ShutdownCommand.create(event);
-
-        if (Config.watchdogEnabled)
-            WatchdogTask.create();
+        if (Config.watchdogEnabled.get())
+            WatchdogTask.create(server);
     }
 }
