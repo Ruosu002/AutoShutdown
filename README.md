@@ -1,50 +1,32 @@
 # ForgeAutoShutdown（1.19.2 Forge, Java 17）
 
-按计划或投票自动关闭 Minecraft 服务器，并提供可选看门狗功能。
-
-## 原项目与来源
-
-本仓库为以下项目的移植/分支：
-
-- 原始项目：https://github.com/abused/ForgeAutoShutdown
-- 1.12.2 基底项目：https://gitlab.com/targren/forgeautoshutdown
-
-## 运行要求
-
-- Minecraft Forge 1.19.2（建议 Forge 43.2.x）
-- Java 17
-- 服务器必装；客户端如需本地化提示请同时安装（否则会显示语言键）
+一个轻量的自动关服模组，支持按时间/运行时长定时关闭，也支持玩家投票关服，并提供可选看门狗监测。
 
 ## 功能
 
-- 定时关闭（按时间或按运行时长）
-- 可选的关闭前警告与“空服再关”延迟
-- 玩家投票关服（`/shutdown`）
-- 看门狗检测卡死或低 TPS（谨慎开启）
+- 定时关服：可按每天固定时间或按运行时长触发，服务器启动后会计算下一次关服时间。
+- 关服提醒：关服前按分钟广播提示，默认提醒 5 次，可在配置中关闭。
+- 空服延迟：如果有人在线则延后关服，直到服务器为空。
+- 投票关服：玩家发起投票，全体玩家投票后决定是否关服；可配置最少人数、冷却时间与否决阈值。
+- 看门狗：检测卡死或 TPS 长期过低，尝试软关服/强关服（有数据风险）。
 
-## 命令
+## 环境要求
 
-- `/shutdown` 发起投票（开启投票时）
+- Minecraft Forge 1.19.2（建议 Forge 43.2.x）
+- Java 17
+- 服务器必装；客户端如需本地化提示请同时安装
+
+## 指令
+
+- `/shutdown` 发起投票
 - `/shutdown yes` 或 `/shutdown no` 进行投票
 
 ## 配置
 
-服务端配置文件：
+配置文件位于：`world/serverconfig/forgeautoshutdown-server.toml`。  
+主要分类如下：
 
-- `world/serverconfig/forgeautoshutdown-server.toml`
-
-分类：Schedule / Voting / Watchdog / Messages。
-
-## 构建
-
-使用 Java 17：
-
-```bash
-JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home ./gradlew build
-```
-
-产物目录：`build/libs/`
-
-## 许可证
-
-MIT
+- Schedule：定时关服相关（按时间/运行时长、提醒、延迟等）
+- Voting：投票关服相关（是否开启、最小人数、冷却时间、否决阈值）
+- Watchdog：看门狗相关（检测间隔、超时阈值、软/硬关服）
+- Messages：提示与踢出信息自定义
